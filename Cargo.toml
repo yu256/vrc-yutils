@@ -1,0 +1,27 @@
+[package]
+name = "vrc-yutils"
+version = "0.0.1-beta1"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "*", features = ["derive"] }
+serde_json = "*"
+tokio-tungstenite = { version = "*", features = ["native-tls"] }
+anyhow = "*"
+futures-util = "*"
+tokio = { version = "*", features = ["macros", "rt-multi-thread", "sync", "fs", "time"] }
+once_cell = "*"
+regex = "*"
+async-once-cell = "*"
+hyper-util = { version = "*", features = ["client-legacy", "http1"] }
+bytes = "*"
+http-body-util = "*"
+hyper = "*"
+hyper-tls = "*"
+base64 = "*"
+
+[features]
+default = []
+websocket = []
