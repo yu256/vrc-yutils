@@ -20,7 +20,6 @@ enum WSError {
     Token,
     Unknown(String),
     IoErr(tungstenite::error::Error),
-    Other(String),
 }
 
 use WSError::*;
@@ -32,10 +31,6 @@ pub(crate) async fn process_websocket(auth: &str, uri: Option<&Uri>) {
     loop {
         match connect_websocket(auth, uri).await {
             Disconnected => {
-                io_err_cnt = 0;
-            }
-            Other(e) => {
-                eprintln!("{e}");
                 io_err_cnt = 0;
             }
             Unknown(e) => {
@@ -79,7 +74,7 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
         .clone();
 
     let mut stream = match connect_async(request).await {
-        Ok(stream) => stream.0,
+        Ok((stream, _)) => stream,
         Err(e @ tungstenite::error::Error::Io(_)) => return IoErr(e),
         Err(e) => return Unknown(e.to_string()),
     };
@@ -89,15 +84,17 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
 
         let message = match message {
             Ok(Message::Text(text)) if text.starts_with(r#"{"err"#) => {
-                return if !text.contains("authToken") {
-                    Unknown(text)
-                } else {
+                return if text.contains("authToken") {
                     Token
+                } else {
+                    Unknown(text)
                 };
             }
             Ok(Message::Text(text)) => text,
-            Ok(Message::Close(_)) => return Disconnected,
-            Err(e) => return Other(e.to_string()),
+            Ok(tungstenite::Message::Close(_)) | Err(tungstenite::error::Error::Protocol(_)) => {
+                return Disconnected
+            }
+            Err(e) => return Unknown(e.to_string()),
             _ => continue,
         };
 
@@ -116,12 +113,23 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             }
 
             "user-location" => {
-                let user = serde_json::from_str::<FriendLocation>(&content).unwrap();
-                *SELF_LOCATION.lock().await = user.location
+                if let FriendLocation {
+                    location: Some(location),
+                    ..
+                } = serde_json::from_str(&content).unwrap()
+                {
+                    *SELF_LOCATION.lock().await = location;
+                }
             }
 
-            "friend-add" | "friend-online" | "friend-offline" | "friend-delete"
-            | "friend-active" | "notification" | "notification-v2" => {}
+            "friend-active"
+            | "friend-add"
+            | "friend-online"
+            | "friend-offline"
+            | "friend-delete"
+            | "notification"
+            | "notification-v2"
+            | "notification-v2-update" => {}
 
             _ => {
                 if cfg!(debug_assertions) {

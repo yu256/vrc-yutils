@@ -1,11 +1,9 @@
-use std::io;
-
+use crate::fetcher::{make_request, request_json, Header, ResponseExt as _};
 use anyhow::Context as _;
 use base64::{engine::general_purpose, Engine as _};
 use hyper::Method;
 use serde_json::json;
-
-use crate::fetcher::{make_request, request_json, Header, ResponseExt as _};
+use std::io;
 
 const URL: &str = "https://api.vrchat.cloud/api/1/auth/user";
 

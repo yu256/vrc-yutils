@@ -41,9 +41,9 @@ pub struct StreamBody {
 #[derive(Deserialize)]
 pub struct FriendLocation {
     pub userId: String,
-    pub location: String,
+    pub location: Option<String>,
     pub travelingToLocation: Option<String>,
-    pub worldId: String,
+    pub worldId: Option<String>,
     pub canRequestInvite: Option<bool>,
     pub user: User,
     pub world: Option<World>,
@@ -75,7 +75,7 @@ pub struct User {
     pub last_login: String,
     pub last_platform: String,
     pub allowAvatarCopying: bool,
-    pub status: String,
+    pub status: Status,
     pub date_joined: String,
     pub isFriend: bool,
     pub friendKey: String,
