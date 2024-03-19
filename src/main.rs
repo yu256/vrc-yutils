@@ -48,7 +48,7 @@ async fn fetch_self_location(auth: &str) {
 
     #[derive(Deserialize)]
     struct Response {
-        precense: Inner,
+        presence: Inner,
     }
 
     #[derive(Deserialize)]
@@ -59,7 +59,7 @@ async fn fetch_self_location(auth: &str) {
 
     let res = res.json::<Response>().await.ok().map(
         |Response {
-             precense: Inner { world, instance },
+             presence: Inner { world, instance },
          }| format!("{world}:{instance}"),
     );
 
