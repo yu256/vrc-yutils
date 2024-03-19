@@ -75,14 +75,13 @@ pub(super) async fn make_request(
     }
 }
 
-// #[inline]
-// pub(crate) async fn request(
-//     method: Method,
-//     target: &str,
-//     cookie: &str,
-// ) -> Result<Response<Incoming>> {
-//     make_request(method, target, Header::Cookie(cookie), None::<()>).await
-// }
+#[inline]
+pub(crate) async fn get(
+    target: &str,
+    cookie: &str,
+) -> Result<Response<Incoming>> {
+    make_request(Method::GET, target, Header::Cookie(cookie), None::<()>).await
+}
 
 #[inline]
 pub(crate) async fn request_json(

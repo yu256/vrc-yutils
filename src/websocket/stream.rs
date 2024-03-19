@@ -64,7 +64,7 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             let host = uri
                 .and_then(|u| u.host())
                 .unwrap_or("pipeline.vrchat.cloud");
-            let mut req = format!("wss://{host}/?auth={auth}")
+            let mut req = format!("wss://{host}/?{auth}")
                 .into_client_request()
                 .unwrap();
             req.headers_mut()
@@ -94,6 +94,7 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             Ok(tungstenite::Message::Close(_)) | Err(tungstenite::error::Error::Protocol(_)) => {
                 return Disconnected
             }
+            Err(e @ tungstenite::error::Error::Io(_)) => return IoErr(e),
             Err(e) => return Unknown(e.to_string()),
             _ => continue,
         };
@@ -113,11 +114,8 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             }
 
             "user-location" => {
-                if let FriendLocation {
-                    location: Some(location),
-                    ..
-                } = serde_json::from_str(&content).unwrap()
-                {
+                let FriendLocation { location, .. } = serde_json::from_str(&content).unwrap();
+                if location.as_ref().is_some_and(|l| !l.is_empty()) {
                     *SELF_LOCATION.lock().await = location;
                 }
             }

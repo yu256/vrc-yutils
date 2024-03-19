@@ -29,7 +29,7 @@ impl Display for JoinType {
 
 /// toがNoneの場合、locationのチェックを行わない
 pub(crate) async fn notify_join(to: Option<&str>, display_name: &str, join_type: JoinType) {
-    if matches!(to, Some(to) if to.is_empty() || to != *SELF_LOCATION.lock().await) {
+    if to.is_some() && to != SELF_LOCATION.lock().await.as_deref() {
         return;
     }
 
