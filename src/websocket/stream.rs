@@ -1,5 +1,7 @@
 use crate::{
-    var::{APP_NAME, SELF_LOCATION, UA},
+    fetcher::{self, ResponseExt as _},
+    init::fetch_user_info,
+    var::{APP_NAME, UA, USERS},
     xsoverlay::notify_join::{notify_join, JoinType},
 };
 use futures_util::StreamExt as _;
@@ -64,7 +66,7 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             let host = uri
                 .and_then(|u| u.host())
                 .unwrap_or("pipeline.vrchat.cloud");
-            let mut req = format!("wss://{host}/?{auth}")
+            let mut req = format!("wss://{host}/.unwrap(){auth}")
                 .into_client_request()
                 .unwrap();
             req.headers_mut()
@@ -102,32 +104,128 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
         let StreamBody { r#type, content } = serde_json::from_str::<StreamBody>(&message).unwrap();
 
         match r#type.as_str() {
-            "friend-location" => {
-                let FriendLocation {
-                    travelingToLocation,
-                    user,
-                    ..
-                } = serde_json::from_str(&content).unwrap();
-                if let Some(to) = &travelingToLocation {
+            "friend-online" | "friend-location" => {
+                let (mut user, world) = serde_json::from_str::<FriendLocation>(&content)
+                    .unwrap()
+                    .normalize();
+                user.unsanitize();
+
+                if let Some(to) = &user.travelingToLocation {
                     notify_join(Some(to), &user.displayName, JoinType::PlayerJoining).await;
+                }
+
+                let users = &mut USERS.write().await;
+
+                if let Some(index) = users.offline.iter().position(|x| x.id == user.id) {
+                    users.offline.remove(index);
+                }
+
+                if let Some(friend) = users.online.iter_mut().find(|users| users.id == user.id) {
+                    *friend = user;
+                } else {
+                    users.online.push(user);
+                    users.online.sort();
+                }
+            }
+
+            "friend-add" => {
+                let id = serde_json::from_str::<UserIdContent>(&content)
+                    .unwrap()
+                    .userId;
+                let mut new_friend =
+                    fetcher::get(&format!("https://api.vrchat.cloud/api/1/users/{id}"), auth)
+                        .await
+                        .unwrap()
+                        .json::<User>()
+                        .await
+                        .unwrap();
+
+                new_friend.unsanitize();
+
+                if new_friend.location.as_ref().is_some_and(|l| l != "offline") {
+                    if let Status::AskMe | Status::Busy = new_friend.status {
+                        if fetch_user_info(auth)
+                            .await
+                            .unwrap()
+                            .activeFriends
+                            .contains(&new_friend.id)
+                        {
+                            let locked = &mut USERS.write().await;
+                            locked.web.push(new_friend);
+                            locked.web.sort();
+                        } else {
+                            let locked = &mut USERS.write().await;
+                            locked.online.push(new_friend);
+                            locked.online.sort();
+                        }
+                    } else {
+                        let locked = &mut USERS.write().await;
+                        locked.online.push(new_friend);
+                        locked.online.sort();
+                    }
+                } else {
+                    let locked = &mut USERS.write().await;
+                    locked.offline.push(new_friend);
+                    locked.offline.sort();
+                }
+            }
+
+            t @ ("friend-offline" | "friend-delete" | "friend-active") => {
+                let id = serde_json::from_str::<UserIdContent>(&content)
+                    .unwrap()
+                    .userId;
+                let users = &mut USERS.write().await;
+
+                macro_rules! move_friend {
+                    ([$($from:ident),*], $to:ident) => {
+                        'block: {
+                            $(
+                                if let Some(index) = users.$from.iter().position(|x| x.id == id) {
+                                    let user = users.$from.remove(index);
+                                    users.$to.push(user);
+                                    users.$to.sort();
+                                    break 'block;
+                                }
+                            )*
+                        }
+                    };
+                }
+
+                macro_rules! remove_friend {
+                    ([$($from:ident),*]) => {
+                        'block: {
+                            $(
+                                if let Some(index) = users.$from.iter().position(|x| x.id == id) {
+                                    users.$from.remove(index);
+                                    break 'block;
+                                }
+                            )*
+                        }
+                    };
+                }
+
+                match t {
+                    "friend-offline" => move_friend!([online, web], offline),
+                    "friend-delete" => remove_friend!([online, web, offline]),
+                    "friend-active" => move_friend!([online, offline], web),
+                    _ => unreachable!(),
                 }
             }
 
             "user-location" => {
-                let FriendLocation { location, .. } = serde_json::from_str(&content).unwrap();
-                if location.as_ref().is_some_and(|l| !l.is_empty()) {
-                    *SELF_LOCATION.lock().await = location;
-                }
+                let user = serde_json::from_str::<FriendLocation>(&content)
+                    .unwrap()
+                    .normalize()
+                    .0;
+                USERS.write().await.myself = Some(user);
             }
 
-            "friend-active"
-            | "friend-add"
-            | "friend-online"
-            | "friend-offline"
-            | "friend-delete"
-            | "notification"
+            "notification"
+            | "see-notification"
+            | "hide-notification"
             | "notification-v2"
-            | "notification-v2-update" => {}
+            | "notification-v2-update"
+            | "notification-v2-delete" => {}
 
             _ => {
                 if cfg!(debug_assertions) {

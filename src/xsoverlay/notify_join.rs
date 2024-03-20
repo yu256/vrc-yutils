@@ -2,7 +2,7 @@
 use super::websocket::{send_message, XSOverlay};
 #[cfg(not(feature = "websocket"))]
 use crate::udp_client::send_message;
-use crate::var::{APP_NAME, SELF_LOCATION};
+use crate::var::{APP_NAME, USERS};
 use serde::Serialize;
 use std::fmt::Display;
 
@@ -29,7 +29,15 @@ impl Display for JoinType {
 
 /// toがNoneの場合、locationのチェックを行わない
 pub(crate) async fn notify_join(to: Option<&str>, display_name: &str, join_type: JoinType) {
-    if to.is_some() && to != SELF_LOCATION.lock().await.as_deref() {
+    if to.is_some()
+        && to
+            != USERS
+                .read()
+                .await
+                .myself
+                .as_ref()
+                .and_then(|u| u.travelingToLocation.as_deref())
+    {
         return;
     }
 

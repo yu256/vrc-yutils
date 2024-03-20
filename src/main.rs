@@ -1,17 +1,17 @@
 mod authorize;
 mod fetcher;
+mod init;
 mod log;
 mod udp_client;
+mod unsanitizer;
 mod var;
 mod vrc_structs;
 mod websocket;
 mod xsoverlay;
 
-use crate::{fetcher::ResponseExt, websocket::stream::process_websocket};
+use crate::websocket::stream::process_websocket;
 use log::process_log;
-use serde::Deserialize;
 use std::env;
-use var::SELF_LOCATION;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,33 +35,12 @@ async fn main() -> anyhow::Result<()> {
     tokio::join!(
         process_websocket(auth, uri.as_ref()),
         process_log(),
-        fetch_self_location(auth)
+        async {
+            if let Err(e) = init::init_var(auth).await {
+                eprintln!("{e}")
+            }
+        }
     );
 
     Ok(())
-}
-
-async fn fetch_self_location(auth: &str) {
-    let Ok(res) = fetcher::get("https://api.vrchat.cloud/api/1/auth/user", &auth).await else {
-        return;
-    };
-
-    #[derive(Deserialize)]
-    struct Response {
-        presence: Inner,
-    }
-
-    #[derive(Deserialize)]
-    struct Inner {
-        world: String,
-        instance: String,
-    }
-
-    let res = res.json::<Response>().await.ok().map(
-        |Response {
-             presence: Inner { world, instance },
-         }| format!("{world}:{instance}"),
-    );
-
-    *SELF_LOCATION.lock().await = res;
 }

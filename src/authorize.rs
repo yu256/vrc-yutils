@@ -74,9 +74,7 @@ pub(crate) async fn auth() -> anyhow::Result<String> {
     )
     .await?;
 
-    let token = token.split_once('=').unwrap().1.to_owned();
-
-    println!("your token: {token}\n次回から--auth={token}として起動してください。");
+    println!("次回から--{token}として起動してください。");
 
     Ok(token)
 }

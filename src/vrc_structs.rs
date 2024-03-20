@@ -1,3 +1,4 @@
+use crate::unsanitizer::Unsanitizer as _;
 use serde::Deserialize;
 
 #[derive(Deserialize, Ord, PartialEq, PartialOrd, Eq, Clone, Copy, Debug)]
@@ -10,6 +11,8 @@ pub enum Status {
     AskMe,
     #[serde(rename = "busy")]
     Busy,
+    #[serde(rename = "offline")]
+    Offline,
 }
 
 impl Ord for User {
@@ -30,11 +33,82 @@ impl PartialOrd for User {
     }
 }
 
+impl User {
+    pub fn unsanitize(&mut self) {
+        self.bio = self.bio.unsanitize();
+        self.statusDescription = self.statusDescription.unsanitize();
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize, Eq)]
+pub struct User {
+    pub id: String,
+    pub location: Option<String>,
+    pub travelingToLocation: Option<String>,
+    pub displayName: String,
+    #[serde(default)]
+    pub userIcon: String,
+    #[serde(default)]
+    pub bio: String,
+    #[serde(default)]
+    pub bioLinks: Vec<String>,
+    #[serde(default)]
+    pub profilePicOverride: String,
+    #[serde(default)]
+    pub statusDescription: String,
+    #[serde(default)]
+    pub currentAvatarImageUrl: String,
+    #[serde(default)]
+    pub currentAvatarThumbnailImageUrl: String,
+    pub tags: Vec<String>,
+    pub developerType: String,
+    pub last_login: String,
+    pub last_platform: String,
+    pub status: Status,
+    pub isFriend: bool,
+    pub friendKey: String,
+}
+
 #[allow(non_snake_case)]
 #[derive(Deserialize)]
 pub struct StreamBody {
     pub r#type: String,
     pub content: String, // json
+}
+
+impl FriendLocation {
+    pub fn normalize(self) -> (User, Option<World>) {
+        (
+            User {
+                bio: self.user.bio,
+                bioLinks: self.user.bioLinks,
+                currentAvatarThumbnailImageUrl: self.user.currentAvatarThumbnailImageUrl,
+                displayName: self.user.displayName,
+                id: self.user.id,
+                isFriend: self.user.isFriend,
+                location: self.location,
+                travelingToLocation: self.travelingToLocation,
+                status: self.user.status,
+                statusDescription: self.user.statusDescription,
+                tags: self.user.tags,
+                userIcon: self.user.userIcon,
+                profilePicOverride: self.user.profilePicOverride,
+                currentAvatarImageUrl: self.user.currentAvatarImageUrl,
+                developerType: self.user.developerType,
+                last_login: self.user.last_login,
+                last_platform: self.user.last_platform,
+                friendKey: self.user.friendKey,
+            },
+            self.world,
+        )
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub struct UserIdContent {
+    pub userId: String,
 }
 
 #[allow(non_snake_case)]
@@ -45,13 +119,14 @@ pub struct FriendLocation {
     pub travelingToLocation: Option<String>,
     pub worldId: Option<String>,
     pub canRequestInvite: Option<bool>,
-    pub user: User,
+    pub user: EventUser,
     pub world: Option<World>,
 }
 
+// location / travelingToLocationが欠けている
 #[allow(non_snake_case)]
-#[derive(Deserialize, Eq)]
-pub struct User {
+#[derive(Deserialize)]
+pub struct EventUser {
     pub id: String,
     pub displayName: String,
     #[serde(default)]
@@ -76,7 +151,6 @@ pub struct User {
     pub last_platform: String,
     pub allowAvatarCopying: bool,
     pub status: Status,
-    pub date_joined: String,
     pub isFriend: bool,
     pub friendKey: String,
     pub last_activity: String,
@@ -114,4 +188,98 @@ pub struct World {
     pub tags: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub struct UserProfile {
+    pub id: String,
+    pub displayName: String,
+    pub userIcon: String,
+    pub bio: String,
+    pub bioLinks: Vec<String>,
+    pub profilePicOverride: String,
+    pub statusDescription: String,
+    pub username: String,
+    pub pastDisplayNames: Vec<String>,
+    pub hasEmail: bool,
+    pub hasPendingEmail: bool,
+    pub obfuscatedEmail: String,
+    pub obfuscatedPendingEmail: String,
+    pub emailVerified: bool,
+    pub hasBirthday: bool,
+    pub hideContentFilterSettings: bool,
+    pub unsubscribe: bool,
+    pub statusHistory: Vec<String>,
+    pub statusFirstTime: bool,
+    pub friends: Vec<String>,
+    pub friendGroupNames: Vec<String>,
+    pub queuedInstance: Option<String>,
+    pub userLanguage: String,
+    pub userLanguageCode: String,
+    pub currentAvatarImageUrl: String,
+    pub currentAvatarThumbnailImageUrl: String,
+    pub currentAvatarTags: Vec<String>,
+    pub currentAvatar: String,
+    pub currentAvatarAssetUrl: String,
+    pub fallbackAvatar: String,
+    pub accountDeletionDate: Option<String>,
+    pub accountDeletionLog: Option<String>,
+    pub acceptedTOSVersion: u32,
+    pub acceptedPrivacyVersion: u32,
+    pub steamId: String,
+    pub steamDetails: SteamDetails,
+    pub googleId: String,
+    pub googleDetails: GoogleDetails,
+    pub oculusId: String,
+    pub picoId: String,
+    pub viveId: String,
+    pub hasLoggedInFromClient: bool,
+    pub homeLocation: String,
+    pub twoFactorAuthEnabled: bool,
+    pub twoFactorAuthEnabledDate: Option<String>,
+    pub updated_at: String,
+    pub state: String,
+    pub tags: Vec<String>,
+    pub developerType: String,
+    pub last_login: String,
+    pub last_platform: String,
+    pub allowAvatarCopying: bool,
+    pub status: Status,
+    pub isFriend: bool,
+    pub friendKey: String,
+    pub last_activity: String,
+    pub onlineFriends: Vec<String>,
+    pub activeFriends: Vec<String>,
+    pub presence: Presence,
+    pub offlineFriends: Vec<String>,
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub struct SteamDetails {}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub struct GoogleDetails {}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub struct Presence {
+    pub platform: String,
+    pub instance: String,
+    pub profilePicOverride: String,
+    pub currentAvatarTags: String,
+    pub avatarThumbnail: String,
+    pub status: Status,
+    pub instanceType: String,
+    pub travelingToWorld: String,
+    pub travelingToInstance: String,
+    pub groups: Vec<String>,
+    pub world: String,
+    pub displayName: String,
+    pub id: String,
+    pub debugflag: String,
+    pub isRejoining: String,
+    pub userIcon: String,
 }
