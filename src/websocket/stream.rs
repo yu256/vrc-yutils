@@ -26,7 +26,7 @@ enum WSError {
 
 use WSError::*;
 
-pub(crate) async fn process_websocket(auth: &str, uri: Option<&Uri>) {
+pub(crate) async fn process_websocket(auth: &'static str, uri: Option<&Uri>) {
     // インターネットに接続されていないときに無限に接続を試みてしまわないように
     let mut io_err_cnt = 0u8;
 
@@ -59,14 +59,26 @@ pub(crate) async fn process_websocket(auth: &str, uri: Option<&Uri>) {
     eprintln!("WebSocketから切断されました。");
 }
 
-async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
+macro_rules! remove_friend {
+    ($friends:expr, $id:expr, [$($from:ident),*]) => {
+        'block: {
+            $(
+                if $friends.$from.find_remove(|x| x.id == $id).is_some() {
+                    break 'block;
+                }
+            )*
+        }
+    };
+}
+
+async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
     static REQUEST: OnceLock<Request<()>> = OnceLock::new();
     let request = REQUEST
         .get_or_init(|| {
             let host = uri
                 .and_then(|u| u.host())
                 .unwrap_or("pipeline.vrchat.cloud");
-            let mut req = format!("wss://{host}/.unwrap(){auth}")
+            let mut req = format!("wss://{host}/?{auth}")
                 .into_client_request()
                 .unwrap();
             req.headers_mut()
@@ -101,139 +113,152 @@ async fn connect_websocket(auth: &str, uri: Option<&Uri>) -> WSError {
             _ => continue,
         };
 
-        let StreamBody { r#type, content } = serde_json::from_str::<StreamBody>(&message).unwrap();
+        tokio::spawn(async move {
+            let result = async move {
+                let StreamBody { r#type, content } = serde_json::from_str::<StreamBody>(&message)?;
 
-        match r#type.as_str() {
-            "friend-online" | "friend-location" => {
-                let (mut user, world) = serde_json::from_str::<FriendLocation>(&content)
-                    .unwrap()
-                    .normalize();
-                user.unsanitize();
+                match r#type.as_str() {
+                    "friend-online" | "friend-location" => {
+                        let (mut user, _) =
+                            serde_json::from_str::<FriendLocation>(&content)?.normalize();
+                        user.unsanitize();
 
-                if let Some(to) = &user.travelingToLocation {
-                    notify_join(Some(to), &user.displayName, JoinType::PlayerJoining).await;
-                }
+                        if let Some(to) = &user.travelingToLocation {
+                            notify_join(Some(to), &user.displayName, JoinType::PlayerJoining).await;
+                        }
 
-                let users = &mut USERS.write().await;
+                        let users = &mut USERS.write().await;
 
-                if let Some(index) = users.offline.iter().position(|x| x.id == user.id) {
-                    users.offline.remove(index);
-                }
-
-                if let Some(friend) = users.online.iter_mut().find(|users| users.id == user.id) {
-                    *friend = user;
-                } else {
-                    users.online.push(user);
-                    users.online.sort();
-                }
-            }
-
-            "friend-add" => {
-                let id = serde_json::from_str::<UserIdContent>(&content)
-                    .unwrap()
-                    .userId;
-                let mut new_friend =
-                    fetcher::get(&format!("https://api.vrchat.cloud/api/1/users/{id}"), auth)
-                        .await
-                        .unwrap()
-                        .json::<User>()
-                        .await
-                        .unwrap();
-
-                new_friend.unsanitize();
-
-                if new_friend.location.as_ref().is_some_and(|l| l != "offline") {
-                    if let Status::AskMe | Status::Busy = new_friend.status {
-                        if fetch_user_info(auth)
-                            .await
-                            .unwrap()
-                            .activeFriends
-                            .contains(&new_friend.id)
+                        if let Some(friend) =
+                            users.online.iter_mut().find(|friend| friend.id == user.id)
                         {
-                            let locked = &mut USERS.write().await;
-                            locked.web.push(new_friend);
-                            locked.web.sort();
+                            let need_to_be_sorted = friend.status != user.status;
+                            *friend = user;
+                            if need_to_be_sorted {
+                                users.online.sort();
+                            }
                         } else {
-                            let locked = &mut USERS.write().await;
-                            locked.online.push(new_friend);
-                            locked.online.sort();
+                            remove_friend!(users, user.id, [offline, web]);
+                            users.online.push_and_sort(user);
                         }
-                    } else {
-                        let locked = &mut USERS.write().await;
-                        locked.online.push(new_friend);
-                        locked.online.sort();
                     }
-                } else {
-                    let locked = &mut USERS.write().await;
-                    locked.offline.push(new_friend);
-                    locked.offline.sort();
-                }
-            }
 
-            t @ ("friend-offline" | "friend-delete" | "friend-active") => {
-                let id = serde_json::from_str::<UserIdContent>(&content)
-                    .unwrap()
-                    .userId;
-                let users = &mut USERS.write().await;
+                    "friend-active" => {
+                        let user = serde_json::from_str::<FriendActive>(&content)?.user;
+                        let locked = &mut USERS.write().await;
+                        remove_friend!(locked, user.id, [offline, online, web]);
+                        locked.web.push_and_sort(user);
+                    }
 
-                macro_rules! move_friend {
-                    ([$($from:ident),*], $to:ident) => {
-                        'block: {
-                            $(
-                                if let Some(index) = users.$from.iter().position(|x| x.id == id) {
-                                    let user = users.$from.remove(index);
-                                    users.$to.push(user);
-                                    users.$to.sort();
-                                    break 'block;
+                    "friend-add" => {
+                        let id = serde_json::from_str::<UserIdContent>(&content)?.userId;
+                        let mut new_friend = fetcher::get(
+                            &format!("https://api.vrchat.cloud/api/1/users/{id}"),
+                            auth,
+                        )
+                        .await?
+                        .json::<User>()
+                        .await?;
+
+                        new_friend.unsanitize();
+
+                        let write = USERS.write();
+
+                        if new_friend.location.as_ref().is_some_and(|l| l != "offline") {
+                            if let Status::AskMe | Status::Busy = new_friend.status {
+                                if fetch_user_info(auth)
+                                    .await?
+                                    .activeFriends
+                                    .contains(&new_friend.id)
+                                {
+                                    write.await.web.push_and_sort(new_friend);
+                                } else {
+                                    write.await.online.push_and_sort(new_friend);
                                 }
-                            )*
+                            } else {
+                                write.await.online.push_and_sort(new_friend);
+                            }
+                        } else {
+                            write.await.offline.push_and_sort(new_friend);
                         }
-                    };
-                }
+                    }
 
-                macro_rules! remove_friend {
-                    ([$($from:ident),*]) => {
-                        'block: {
-                            $(
-                                if let Some(index) = users.$from.iter().position(|x| x.id == id) {
-                                    users.$from.remove(index);
-                                    break 'block;
-                                }
-                            )*
+                    "friend-offline" => {
+                        let id = serde_json::from_str::<UserIdContent>(&content)?.userId;
+                        let locked = &mut USERS.write().await;
+
+                        if let Some(mut friend) = locked
+                            .online
+                            .find_remove(|x| x.id == id)
+                            .or_else(|| locked.web.find_remove(|x| x.id == id))
+                        {
+                            friend.status = Default::default();
+                            friend.location = Default::default();
+                            friend.travelingToLocation = Default::default();
+                            locked.offline.push(friend);
                         }
-                    };
+                    }
+
+                    "friend-delete" => {
+                        let id = serde_json::from_str::<UserIdContent>(&content)?.userId;
+                        let locked = &mut USERS.write().await;
+                        remove_friend!(locked, id, [offline, web, online]);
+                    }
+
+                    "user-location" => {
+                        let user = serde_json::from_str::<FriendLocation>(&content)?
+                            .normalize()
+                            .0;
+                        USERS.write().await.myself = Some(user);
+                    }
+
+                    "notification"
+                    | "see-notification"
+                    | "hide-notification"
+                    | "notification-v2"
+                    | "notification-v2-update"
+                    | "notification-v2-delete" => {}
+
+                    _ => {
+                        if cfg!(debug_assertions) {
+                            println!("unknown event: {message}")
+                        }
+                    }
                 }
-
-                match t {
-                    "friend-offline" => move_friend!([online, web], offline),
-                    "friend-delete" => remove_friend!([online, web, offline]),
-                    "friend-active" => move_friend!([online, offline], web),
-                    _ => unreachable!(),
-                }
+                Ok::<_, anyhow::Error>(())
             }
+            .await;
 
-            "user-location" => {
-                let user = serde_json::from_str::<FriendLocation>(&content)
-                    .unwrap()
-                    .normalize()
-                    .0;
-                USERS.write().await.myself = Some(user);
+            if let Err(e) = result {
+                eprintln!("{e}");
             }
-
-            "notification"
-            | "see-notification"
-            | "hide-notification"
-            | "notification-v2"
-            | "notification-v2-update"
-            | "notification-v2-delete" => {}
-
-            _ => {
-                if cfg!(debug_assertions) {
-                    println!("unknown event: {message}")
-                }
-            }
-        }
+        });
     }
 
     Disconnected
+}
+
+trait VecExt<T> {
+    fn find_remove<F>(&mut self, fun: F) -> Option<T>
+    where
+        F: Fn(&T) -> bool;
+    fn push_and_sort(&mut self, item: T)
+    where
+        T: Ord;
+}
+
+impl<T> VecExt<T> for Vec<T> {
+    fn find_remove<F>(&mut self, fun: F) -> Option<T>
+    where
+        F: Fn(&T) -> bool,
+    {
+        self.iter().position(fun).map(|i| self.remove(i))
+    }
+    fn push_and_sort(&mut self, item: T)
+    where
+        T: Ord,
+    {
+        self.push(item);
+        self.sort();
+    }
 }

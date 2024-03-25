@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+axum = { version = "*", features = ["ws"] }
+tower-http = { version = "*", features = ["cors"] }
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 tokio-tungstenite = { version = "*", features = ["native-tls"] }
@@ -22,6 +24,10 @@ hyper = "*"
 hyper-tls = "*"
 base64 = "*"
 aho-corasick = "*"
+include_dir = "*"
+tower-serve-static = "*"
+wry = "0.38.1"
+tao = "0.26.1"
 
 [features]
 default = []

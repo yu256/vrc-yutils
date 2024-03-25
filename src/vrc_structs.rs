@@ -1,7 +1,7 @@
 use crate::unsanitizer::Unsanitizer as _;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Ord, PartialEq, PartialOrd, Eq, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Ord, PartialEq, PartialOrd, Eq, Clone, Copy, Debug)]
 pub enum Status {
     #[serde(rename = "join me")]
     JoinMe,
@@ -13,6 +13,12 @@ pub enum Status {
     Busy,
     #[serde(rename = "offline")]
     Offline,
+}
+
+impl Default for Status {
+    fn default() -> Self {
+        Self::Offline
+    }
 }
 
 impl Ord for User {
@@ -41,19 +47,21 @@ impl User {
 }
 
 #[allow(non_snake_case)]
-#[derive(Deserialize, Eq)]
+#[derive(Serialize, Deserialize, Eq)]
 pub struct User {
     pub id: String,
     pub location: Option<String>,
     pub travelingToLocation: Option<String>,
     pub displayName: String,
     #[serde(default)]
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub userIcon: String,
     #[serde(default)]
     pub bio: String,
     #[serde(default)]
     pub bioLinks: Vec<String>,
     #[serde(default)]
+    #[serde(skip_serializing_if = "str::is_empty")]
     pub profilePicOverride: String,
     #[serde(default)]
     pub statusDescription: String,
@@ -109,6 +117,12 @@ impl FriendLocation {
 #[derive(Deserialize)]
 pub struct UserIdContent {
     pub userId: String,
+}
+
+#[allow(non_snake_case)]
+#[derive(Deserialize)]
+pub(super) struct FriendActive {
+    pub(super) user: User,
 }
 
 #[allow(non_snake_case)]

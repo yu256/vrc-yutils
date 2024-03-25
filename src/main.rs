@@ -1,4 +1,5 @@
 mod authorize;
+mod endpoints;
 mod fetcher;
 mod init;
 mod log;
@@ -9,38 +10,71 @@ mod vrc_structs;
 mod websocket;
 mod xsoverlay;
 
-use crate::websocket::stream::process_websocket;
+use crate::{var::APP_NAME, websocket::stream::process_websocket};
 use log::process_log;
-use std::env;
+use std::thread;
+use tao::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
+use wry::WebViewBuilder;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args = env::args().collect::<Vec<_>>();
-    // let uri = find_arg_value(&args, "--url").and_then(|a| a.parse::<Uri>().ok());
-    let uri = None;
+fn main() -> anyhow::Result<()> {
+    thread::spawn(|| {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4) // 4つのワーカースレッドを使用するように指定
+            .enable_all()
+            .build()
+            .unwrap();
 
-    let auth;
-    let auth = match args
-        .iter()
-        .find(|arg| arg.starts_with("--auth"))
-        .map(|a| &a[2..])
-    {
-        Some(auth) => auth,
-        None => {
-            auth = authorize::auth().await?;
-            &auth
-        }
-    };
+        runtime.block_on(async {
+            let args = std::env::args().collect::<Vec<_>>();
 
-    tokio::join!(
-        process_websocket(auth, uri.as_ref()),
-        process_log(),
-        async {
-            if let Err(e) = init::init_var(auth).await {
-                eprintln!("{e}")
+            // let uri = find_arg_value(&args, "--url").and_then(|a| a.parse::<Uri>().ok());
+            let uri = None;
+
+            let auth = match args
+                .iter()
+                .find(|arg| arg.starts_with("--auth"))
+                .map(|a| &a[2..])
+            {
+                Some(auth) => auth.to_string(),
+                None => authorize::auth().await.unwrap_or_else(|e| panic!("{e}")),
             }
-        }
-    );
+            .leak();
 
-    Ok(())
+            tokio::join!(
+                endpoints::launch(),
+                process_websocket(auth, uri.as_ref()),
+                process_log(),
+                async {
+                    if let Err(e) = init::init_var(auth).await {
+                        eprintln!("{e}")
+                    }
+                }
+            );
+        })
+    });
+
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title(APP_NAME)
+        .build(&event_loop)?;
+
+    let _webview = WebViewBuilder::new(&window)
+        .with_url("http://localhost:8000")
+        .build()?;
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+
+        if let Event::WindowEvent {
+            event: WindowEvent::CloseRequested,
+            ..
+        } = event
+        {
+            *control_flow = ControlFlow::Exit
+        }
+    });
 }

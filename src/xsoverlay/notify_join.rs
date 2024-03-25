@@ -36,7 +36,7 @@ pub(crate) async fn notify_join(to: Option<&str>, display_name: &str, join_type:
                 .await
                 .myself
                 .as_ref()
-                .and_then(|u| u.travelingToLocation.as_deref())
+                .and_then(|u| u.location.as_deref())
     {
         return;
     }
