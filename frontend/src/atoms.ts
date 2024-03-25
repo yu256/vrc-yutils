@@ -33,10 +33,7 @@ const users = config.alternativeServer
 const get =
 	<T extends keyof Users>(type: T) =>
 	() =>
-		users.then((users) => {
-			if (users instanceof Error) return users;
-			return users[type];
-		});
+		users.then((res) => (res instanceof Error ? res : res[type]));
 
 export const myself = atom(get("myself"));
 export const online = atom(get("online"));

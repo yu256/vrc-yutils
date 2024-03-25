@@ -41,6 +41,7 @@ impl PartialOrd for User {
 
 impl User {
     pub fn unsanitize(&mut self) {
+        self.displayName = self.displayName.unsanitize();
         self.bio = self.bio.unsanitize();
         self.statusDescription = self.statusDescription.unsanitize();
     }

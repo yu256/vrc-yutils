@@ -5,26 +5,12 @@ import { myself } from "@/atoms";
 import { type ReactNode, Suspense, useMemo } from "react";
 import { useAtomValue, useErrorToast } from "./use-toast";
 
-export const Sidebar = ({
-	className,
-}: {
-	user?: Pick<
-		User,
-		| "currentAvatarThumbnailImageUrl"
-		| "profilePicOverride"
-		| "userIcon"
-		| "displayName"
-		| "status"
-	>;
-	className?: string;
-}) => (
-	<div className={className}>
-		<SidebarInner>
-			<Suspense fallback={<UserView isLoading />}>
-				<UserView />
-			</Suspense>
-		</SidebarInner>
-	</div>
+export const Sidebar = () => (
+	<SidebarInner>
+		<Suspense fallback={<UserView isLoading />}>
+			<UserView />
+		</Suspense>
+	</SidebarInner>
 );
 
 const SidebarInner = ({ children }: { children: ReactNode }) => {
@@ -78,7 +64,11 @@ const UserView = ({ isLoading = false }) => {
 
 	return (
 		<div className="mt-auto grid grid-cols-3 place-items-center">
-			<VrcAvatar className="min-w-14 max-h-[5rem]" user={user} showStatus={false} />
+			<VrcAvatar
+				className="min-w-14 max-h-[5rem]"
+				user={user}
+				showStatus={false}
+			/>
 			<div className="w-full h-20 text-sm font-medium text-black dark:text-white flex items-center justify-center col-span-2">
 				{user.displayName}
 			</div>

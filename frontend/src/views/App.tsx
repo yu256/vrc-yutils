@@ -9,7 +9,9 @@ export default () => (
 	<>
 		<div className="p-10 grid grid-cols-5">
 			<Provider>
-				<Sidebar className="w-full bg-white dark:bg-slate-900" />
+				<div className="w-full bg-white dark:bg-slate-900">
+					<Sidebar />
+				</div>
 				<div className="col-span-4">
 					<Suspense fallback={<Settings />}>
 						<RouterView />
