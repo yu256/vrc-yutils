@@ -21,29 +21,28 @@ use tao::{
 use wry::WebViewBuilder;
 
 fn main() -> anyhow::Result<()> {
-    thread::spawn(|| {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(4) // 4つのワーカースレッドを使用するように指定
-            .enable_all()
-            .build()
-            .unwrap();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(4)
+        .enable_all()
+        .build()?;
 
+    let args = std::env::args().collect::<Vec<_>>();
+
+    // let uri = find_arg_value(&args, "--url").and_then(|a| a.parse::<Uri>().ok());
+    let uri = None;
+
+    let auth = match args
+        .iter()
+        .find(|arg| arg.starts_with("--auth"))
+        .map(|a| &a[2..])
+    {
+        Some(auth) => auth.to_string(),
+        None => runtime.block_on(authorize::auth())?,
+    }
+    .leak();
+
+    thread::spawn(move || {
         runtime.block_on(async {
-            let args = std::env::args().collect::<Vec<_>>();
-
-            // let uri = find_arg_value(&args, "--url").and_then(|a| a.parse::<Uri>().ok());
-            let uri = None;
-
-            let auth = match args
-                .iter()
-                .find(|arg| arg.starts_with("--auth"))
-                .map(|a| &a[2..])
-            {
-                Some(auth) => auth.to_string(),
-                None => authorize::auth().await.unwrap_or_else(|e| panic!("{e}")),
-            }
-            .leak();
-
             tokio::join!(
                 endpoints::launch(),
                 process_websocket(auth, uri.as_ref()),
