@@ -1,12 +1,10 @@
 import Settings from "@/views/Settings";
-import type { sidebarItems } from "./router";
+import { useRoute } from "./router";
 import Friends from "@/views/Friends";
 
-export default function ({
-	route,
-}: {
-	route: (typeof sidebarItems)[number];
-}) {
+export default function () {
+	const route = useRoute();
+
 	switch (route) {
 		// case "Social":
 		// 	return <Social />;

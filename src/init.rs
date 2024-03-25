@@ -49,7 +49,9 @@ pub async fn init_var(token: &str) -> anyhow::Result<()> {
 
     users.myself = Some(myself);
     users.online = online;
+    users.online.sort();
     users.web = web;
+    users.web.sort();
     users.offline = offline;
 
     Ok(())

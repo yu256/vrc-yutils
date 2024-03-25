@@ -1,17 +1,13 @@
 import type { User } from "@/types/vrchat";
 import { VrcAvatar } from "../avatar";
-import { sidebarItems } from "@/router/router";
-import { useAtomValue } from "jotai";
+import { sidebarItems, useRoute, useSetRoute } from "@/router/router";
 import { myself } from "@/atoms";
-import { Suspense } from "react";
+import { type ReactNode, Suspense, useMemo } from "react";
+import { useAtomValue, useErrorToast } from "./use-toast";
 
 export const Sidebar = ({
-	setRoute,
-	current = "Settings",
 	className,
 }: {
-	current: (typeof sidebarItems)[number];
-	setRoute: (route: (typeof sidebarItems)[number]) => void;
 	user?: Pick<
 		User,
 		| "currentAvatarThumbnailImageUrl"
@@ -23,6 +19,19 @@ export const Sidebar = ({
 	className?: string;
 }) => (
 	<div className={className}>
+		<SidebarInner>
+			<Suspense fallback={<UserView isLoading />}>
+				<UserView />
+			</Suspense>
+		</SidebarInner>
+	</div>
+);
+
+const SidebarInner = ({ children }: { children: ReactNode }) => {
+	const route = useRoute();
+	const setRoute = useSetRoute();
+
+	return (
 		<aside
 			id="sidebar"
 			className="fixed left-0 top-0 z-40 h-screen w-[20vw] transition-transform"
@@ -39,7 +48,7 @@ export const Sidebar = ({
 							type="button"
 							onClick={() => setRoute(item)}
 							className={
-								item === current
+								item === route
 									? "flex w-full items-center rounded-lg px-5 py-4 bg-slate-100 dark:hover:bg-slate-700"
 									: "flex w-full items-center rounded-lg px-4 py-3 text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-700"
 							}
@@ -47,14 +56,12 @@ export const Sidebar = ({
 							{item}
 						</button>
 					))}
-					<Suspense fallback={<UserView isLoading />}>
-						<UserView />
-					</Suspense>
+					{children}
 				</ul>
 			</div>
 		</aside>
-	</div>
-);
+	);
+};
 
 const fallBackUser = {
 	displayName: "unauthorized",
@@ -62,11 +69,16 @@ const fallBackUser = {
 } as const;
 
 const UserView = ({ isLoading = false }) => {
-	const user = isLoading ? fallBackUser : useAtomValue(myself);
+	const errorToast = useErrorToast<User>();
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	const useAtomVal = useMemo(() => useAtomValue(errorToast), []);
+
+	const user = isLoading ? fallBackUser : useAtomVal(myself);
 
 	return (
 		<div className="mt-auto grid grid-cols-3 place-items-center">
-			<VrcAvatar className="min-w-14" user={user} showStatus={false} />
+			<VrcAvatar className="min-w-14 max-h-[5rem]" user={user} showStatus={false} />
 			<div className="w-full h-20 text-sm font-medium text-black dark:text-white flex items-center justify-center col-span-2">
 				{user.displayName}
 			</div>

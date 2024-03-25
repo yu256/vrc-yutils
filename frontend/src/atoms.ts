@@ -6,26 +6,35 @@ export const config: Config = JSON.parse(
 	localStorage.getItem("config") ?? "{}",
 );
 
-const neverResolvePromise = new Promise(() => {});
-
-const fetch = (url: RequestInfo | URL, body?: BodyInit | null) =>
+const fetch = (
+	url: RequestInfo | URL,
+	body?: BodyInit | null,
+): Promise<Users | Error> =>
 	window
 		.fetch(url, {
 			method: body ? "POST" : "GET",
 			body,
 			headers: { "Content-Type": "application/json" },
 		})
-		.then((r) => r.json());
+		.then((r) =>
+			r.ok
+				? r.json()
+				: new Error(
+						`failed to fetch: ${url}
+					 	 statusCode: ${r.status}`,
+					),
+		)
+		.catch((e) => e);
 
-const users: Promise<Users | undefined> = config.alternativeServer
+const users = config.alternativeServer
 	? fetch(config.alternativeServer.url, config.alternativeServer.auth)
-	: fetch(`${location.href}friends`).catch(console.error);
+	: fetch(`${location.href}friends`);
 
 const get =
 	<T extends keyof Users>(type: T) =>
 	() =>
 		users.then((users) => {
-			if (!users) throw neverResolvePromise;
+			if (users instanceof Error) return users;
 			return users[type];
 		});
 

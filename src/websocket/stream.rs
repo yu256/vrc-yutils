@@ -179,7 +179,7 @@ async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
                                 write.await.online.push_and_sort(new_friend);
                             }
                         } else {
-                            write.await.offline.push_and_sort(new_friend);
+                            write.await.offline.push(new_friend);
                         }
                     }
 

@@ -7,7 +7,6 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { Config } from "@/types/config";
 import { useCallback, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -22,7 +21,7 @@ const FormSchema = z.object({
 });
 
 export default function () {
-	const [config, setConfig] = useState<Config>(cfg);
+	const [config, setConfig] = useState(cfg);
 
 	const form = useForm<z.infer<typeof FormSchema>>({
 		resolver: zodResolver(FormSchema),

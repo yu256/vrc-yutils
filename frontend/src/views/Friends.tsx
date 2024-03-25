@@ -5,15 +5,21 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useAtomValue } from "jotai";
 import { offline, online, web } from "@/atoms";
 import { UserView } from "@/components/user";
+import { useAtomValue, useErrorToast } from "@/components/ui/use-toast";
+import { useMemo } from "react";
 
 export default function () {
+	const errorToast = useErrorToast<User[]>();
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	const useAtomVal = useMemo(() => useAtomValue(errorToast), []);
+
 	const users = [
-		["online", useAtomValue(online)],
-		["web", useAtomValue(web)],
-		["offline", useAtomValue(offline)],
+		["online", useAtomVal(online)],
+		["web", useAtomVal(web)],
+		["offline", useAtomVal(offline)],
 	] as const satisfies Array<[keyof Exclude<Users, "myself">, User[]]>;
 
 	return (

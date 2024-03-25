@@ -1,26 +1,22 @@
+import { Toaster } from "@/components/ui/toaster";
 import { Sidebar } from "../components/ui/sidebar";
-import { useRoute } from "../router/router";
 import RouterView from "../router/RouterView";
 import { Provider } from "jotai";
 import { Suspense } from "react";
+import Settings from "./Settings";
 
-export default function () {
-	const [route, setRoute] = useRoute();
-
-	return (
+export default () => (
+	<>
 		<div className="p-10 grid grid-cols-5">
 			<Provider>
-				<Sidebar
-					className="w-full bg-white dark:bg-slate-900"
-					current={route}
-					setRoute={setRoute}
-				/>
+				<Sidebar className="w-full bg-white dark:bg-slate-900" />
 				<div className="col-span-4">
-					<Suspense fallback={<div>Loading...</div>}>
-						<RouterView route={route} />
+					<Suspense fallback={<Settings />}>
+						<RouterView />
 					</Suspense>
 				</div>
 			</Provider>
 		</div>
-	);
-}
+		<Toaster />
+	</>
+);

@@ -21,6 +21,6 @@ pub(super) async fn friends(ConnectInfo(addr): ConnectInfo<SocketAddr>) -> Strin
                 break serde_json::to_string(users).unwrap();
             }
         }
-        tokio::time::sleep(Duration::from_secs(1)).await
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }

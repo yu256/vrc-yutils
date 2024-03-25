@@ -39,12 +39,12 @@ const VrcAvatar = ({
 						user.status === "active"
 							? "bg-green-500"
 							: user.status === "ask me"
-								? "bg-yellow-500"
+								? "bg-orange-500"
 								: user.status === "offline"
 									? "bg-black"
 									: user.status === "join me"
 										? "bg-blue-500"
-										: "bg-red-500",
+										: "bg-amber-900",
 					)}
 				/>
 			</div>
