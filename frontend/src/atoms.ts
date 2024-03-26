@@ -28,7 +28,7 @@ const fetch = (
 
 const users = config.alternativeServer
 	? fetch(config.alternativeServer.url, config.alternativeServer.auth)
-	: fetch(`${location.href}friends`);
+	: fetch("friends");
 
 const get =
 	<T extends keyof Users>(type: T) =>

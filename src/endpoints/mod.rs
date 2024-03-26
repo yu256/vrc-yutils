@@ -1,7 +1,14 @@
+mod auth;
 mod friends;
+mod i;
 
 use self::friends::friends;
-use axum::{routing::get, Router};
+use crate::endpoints::auth::auth;
+use crate::endpoints::i::infomation;
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use hyper::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use std::net::SocketAddr;
@@ -13,12 +20,14 @@ pub async fn launch() {
     let service = ServeDir::new(&ASSETS_DIR);
 
     let app = Router::new()
+        .route("/i", get(infomation))
+        .route("/auth", post(auth))
         .route("/friends", get(friends))
         .nest_service("/", service)
         .layer(
             CorsLayer::new()
                 .allow_origin(tower_http::cors::Any)
-                .allow_methods([Method::GET])
+                .allow_methods([Method::GET, Method::POST])
                 .allow_headers([CONTENT_TYPE]),
         );
 

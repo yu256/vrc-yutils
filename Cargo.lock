@@ -86,7 +86,7 @@ checksum = "1236b4b292f6c4d6dc34604bb5120d85c3fe1d1aa596bd5cc52ca054d13e7b9e"
 dependencies = [
  "async-trait",
  "axum-core",
- "base64 0.21.7",
+ "base64",
  "bytes",
  "futures-util",
  "http 1.1.0",
@@ -156,12 +156,6 @@ name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
-
-[[package]]
-name = "base64"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
 
 [[package]]
 name = "bitflags"
@@ -2793,7 +2787,6 @@ dependencies = [
  "anyhow",
  "async-once-cell",
  "axum",
- "base64 0.22.0",
  "bytes",
  "futures-util",
  "http-body-util",
@@ -2801,6 +2794,7 @@ dependencies = [
  "hyper-tls",
  "hyper-util",
  "include_dir",
+ "mime",
  "once_cell",
  "regex",
  "serde",
@@ -3273,7 +3267,7 @@ version = "0.38.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d18956c0e77f0d352e34605d83d16ca8efc8120335cd798202d36eda79164100"
 dependencies = [
- "base64 0.21.7",
+ "base64",
  "block",
  "cfg_aliases",
  "cocoa",

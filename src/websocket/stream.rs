@@ -1,12 +1,13 @@
 use crate::{
     fetcher::{self, ResponseExt as _},
     init::fetch_user_info,
-    var::{APP_NAME, UA, USERS},
+    var::{ConfigRW, APP_NAME, CFG, UA, USERS},
     xsoverlay::notify_join::{notify_join, JoinType},
 };
+use async_once_cell::OnceCell;
 use futures_util::StreamExt as _;
 use hyper::Uri;
-use std::{sync::OnceLock, time::Duration};
+use std::time::Duration;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{
@@ -26,12 +27,12 @@ enum WSError {
 
 use WSError::*;
 
-pub(crate) async fn process_websocket(auth: &'static str, uri: Option<&Uri>) {
+pub(crate) async fn process_websocket() {
     // インターネットに接続されていないときに無限に接続を試みてしまわないように
     let mut io_err_cnt = 0u8;
 
     loop {
-        match connect_websocket(auth, uri).await {
+        match connect_websocket().await {
             Disconnected => {
                 io_err_cnt = 0;
             }
@@ -71,20 +72,31 @@ macro_rules! remove_friend {
     };
 }
 
-async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
-    static REQUEST: OnceLock<Request<()>> = OnceLock::new();
+async fn connect_websocket() -> WSError {
+    static REQUEST: OnceCell<Request<()>> = OnceCell::new();
     let request = REQUEST
-        .get_or_init(|| {
+        .get_or_init(async {
+            let config = CFG.get().await;
+
+            let uri = config
+                .alt_url
+                .as_ref()
+                .and_then(|url| url.parse::<Uri>().ok());
+
             let host = uri
+                .as_ref()
                 .and_then(|u| u.host())
                 .unwrap_or("pipeline.vrchat.cloud");
-            let mut req = format!("wss://{host}/?{auth}")
+
+            let mut req = format!("wss://{host}/?{}", config.token)
                 .into_client_request()
                 .unwrap();
+
             req.headers_mut()
                 .insert(UA, HeaderValue::from_static(APP_NAME));
             req
         })
+        .await
         .clone();
 
     let mut stream = match connect_async(request).await {
@@ -124,7 +136,11 @@ async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
                         user.unsanitize();
 
                         if let Some(to) = &user.travelingToLocation {
-                            notify_join(Some(to), &user.displayName, JoinType::PlayerJoining).await;
+                            let to = to.to_owned();
+                            let display_name = user.displayName.clone();
+                            tokio::spawn(async move {
+                                notify_join(Some(&to), &display_name, JoinType::PlayerJoining).await
+                            });
                         }
 
                         let users = &mut USERS.write().await;
@@ -154,7 +170,7 @@ async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
                         let id = serde_json::from_str::<UserIdContent>(&content)?.userId;
                         let mut new_friend = fetcher::get(
                             &format!("https://api.vrchat.cloud/api/1/users/{id}"),
-                            auth,
+                            &CFG.get().await.token,
                         )
                         .await?
                         .json::<User>()
@@ -166,7 +182,7 @@ async fn connect_websocket(auth: &'static str, uri: Option<&Uri>) -> WSError {
 
                         if new_friend.location.as_ref().is_some_and(|l| l != "offline") {
                             if let Status::AskMe | Status::Busy = new_friend.status {
-                                if fetch_user_info(auth)
+                                if fetch_user_info(&CFG.get().await.token)
                                     .await?
                                     .activeFriends
                                     .contains(&new_friend.id)

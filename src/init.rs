@@ -1,15 +1,20 @@
 use crate::{
     fetcher::{self, ResponseExt as _},
-    var::USERS,
+    var::{ConfigRW, CFG, USERS},
     vrc_structs::{User, UserProfile},
 };
 
-pub async fn init_var(token: &str) -> anyhow::Result<()> {
-    let (user_profile, online, offline) = tokio::try_join!(
-        fetch_user_info(token),
-        fetch_all_friends(token, false),
-        fetch_all_friends(token, true),
-    )?;
+pub async fn init_var() -> anyhow::Result<()> {
+    CFG.init().await?;
+
+    let (user_profile, online, offline) = {
+        let config = CFG.get().await;
+        tokio::try_join!(
+            fetch_user_info(&config.token),
+            fetch_all_friends(&config.token, false),
+            fetch_all_friends(&config.token, true),
+        )?
+    };
 
     let (web, online) = online
         .into_iter()

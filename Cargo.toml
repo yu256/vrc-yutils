@@ -22,12 +22,12 @@ bytes = "*"
 http-body-util = "*"
 hyper = "*"
 hyper-tls = "*"
-base64 = "*"
 aho-corasick = "*"
 include_dir = "*"
 tower-serve-static = "*"
 wry = "0.38.1"
 tao = "0.26.1"
+mime = "0.3.17"
 
 [features]
 default = []

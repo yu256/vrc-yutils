@@ -3,7 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 const fetch = <T>(
 	key: string,
 	url: RequestInfo | URL,
-	body?: string,
+	body?: string | object,
 ): T | Error =>
 	useSuspenseQuery({
 		queryKey: [key],
@@ -11,8 +11,11 @@ const fetch = <T>(
 			window
 				.fetch(url, {
 					method: body ? "POST" : "GET",
-					body,
-					headers: body ? { "Content-Type": "application/json" } : undefined,
+					body: typeof body === "object" ? JSON.stringify(body) : body,
+					headers:
+						typeof body === "object"
+							? { "Content-Type": "application/json" }
+							: undefined,
 				})
 				.then((r) => r.json())
 				.catch((e) => e),
