@@ -6,7 +6,6 @@ use crate::{
 };
 use async_once_cell::OnceCell;
 use futures_util::StreamExt as _;
-use hyper::Uri;
 use std::time::Duration;
 use tokio_tungstenite::{
     connect_async,
@@ -78,17 +77,7 @@ async fn connect_websocket() -> WSError {
         .get_or_init(async {
             let config = CFG.get().await;
 
-            let uri = config
-                .alt_url
-                .as_ref()
-                .and_then(|url| url.parse::<Uri>().ok());
-
-            let host = uri
-                .as_ref()
-                .and_then(|u| u.host())
-                .unwrap_or("pipeline.vrchat.cloud");
-
-            let mut req = format!("wss://{host}/?{}", config.token)
+            let mut req = format!("wss://pipeline.vrchat.cloud/?{}", config.token)
                 .into_client_request()
                 .unwrap();
 

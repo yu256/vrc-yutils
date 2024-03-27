@@ -108,9 +108,8 @@ async fn two_factor_query(
     .await
     .unwrap();
 
-    CFG.set(move |old| Config {
+    CFG.set(move |_| Config {
         token,
-        alt_url: old.alt_url.clone(),
     })
     .await
     .unwrap();
@@ -119,9 +118,8 @@ async fn two_factor_query(
 }
 
 async fn token_query(TokenQuery { token }: TokenQuery) -> Json<Response> {
-    CFG.set(move |old| Config {
+    CFG.set(move |_| Config {
         token,
-        alt_url: old.alt_url.clone(),
     })
     .await
     .unwrap();

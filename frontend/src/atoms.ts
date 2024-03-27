@@ -16,12 +16,13 @@ const fetch = (
 			body,
 			headers: { "Content-Type": "application/json" },
 		})
-		.then((r) =>
+		.then(async (r) =>
 			r.ok
 				? r.json()
 				: new Error(
 						`failed to fetch: ${url}
-					 	 statusCode: ${r.status}`,
+					 	 statusCode: ${r.status}
+                         ${await r.text()}`,
 					),
 		)
 		.catch((e) => e);

@@ -12,6 +12,10 @@ use tokio::{
 pub(crate) const APP_NAME: &str = "vrc-yutils";
 pub(crate) const UA: &str = "User-Agent";
 pub(crate) const CFG_FILE_NAME: &str = "config.json";
+pub(crate) const JSON: [(axum::http::HeaderName, axum::http::HeaderValue); 1] = [(
+    hyper::header::CONTENT_TYPE,
+    axum::http::HeaderValue::from_static("application/json"),
+)];
 
 pub(crate) static CURRENT_DIR: Lazy<PathBuf> = Lazy::new(|| env::current_dir().unwrap());
 
@@ -19,7 +23,6 @@ pub(crate) static USERS: RwLock<Users> = RwLock::const_new(Users::new());
 
 pub(crate) static CFG: RwLock<Config> = RwLock::const_new(Config {
     token: String::new(),
-    alt_url: None,
 });
 
 #[derive(Serialize)]
@@ -44,7 +47,6 @@ impl Users {
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct Config {
     pub(crate) token: String,
-    pub(crate) alt_url: Option<String>,
 }
 
 pub(crate) trait ConfigRW {
@@ -59,7 +61,6 @@ impl ConfigRW for RwLock<Config> {
         let Ok(file) = File::open(CURRENT_DIR.join(CFG_FILE_NAME)).await else {
             self.set(|_| Config {
                 token: "default".into(),
-                alt_url: None,
             })
             .await?;
             return Box::pin(self.init()).await;
