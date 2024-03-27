@@ -2,10 +2,6 @@ import { atom } from "jotai";
 import type { Config } from "./types/config";
 import type { Users } from "./types/vrchat";
 
-export const config: Config = JSON.parse(
-	localStorage.getItem("config") ?? "{}",
-);
-
 const fetch = (
 	url: RequestInfo | URL,
 	body?: BodyInit | null,
@@ -26,6 +22,12 @@ const fetch = (
 					),
 		)
 		.catch((e) => e);
+
+export const config: Config = JSON.parse(
+	localStorage.getItem("config") ?? "{}",
+);
+
+export const proxyUrl = localStorage.getItem("proxyUrl") ?? "";
 
 const users = config.alternativeServer
 	? fetch(config.alternativeServer.url, config.alternativeServer.auth)

@@ -12,8 +12,9 @@ import { useCallback, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { config as cfg } from "@/atoms";
+import { config as cfg, proxyUrl } from "@/atoms";
 import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@radix-ui/react-toast";
 
 const FormSchema = z.object({
 	alternativeServer: z.object({
@@ -22,14 +23,34 @@ const FormSchema = z.object({
 	}),
 });
 
-export default () => (
-	<div className="grid gap-3">
-		<AlternativeServer />
-		<Auth />
-	</div>
-);
+export default function () {
+	const { toast } = useToast();
+	const reloadToast = () =>
+		toast({
+			title: "Reload",
+			description: "Reload to reflect changes",
+			action: (
+				<ToastAction
+					altText="
+            Reload
+            "
+					onClick={() => window.location.reload()}
+				>
+					Reload
+				</ToastAction>
+			),
+		});
 
-function AlternativeServer() {
+	return (
+		<div className="grid gap-3">
+			<AlternativeServer reloadToast={reloadToast} />
+			<Auth toast={toast} />
+			<ProxyUrl reloadToast={reloadToast} />
+		</div>
+	);
+}
+
+function AlternativeServer({ reloadToast }: { reloadToast: () => void }) {
 	const [config, setConfig] = useState(cfg);
 
 	const form = useForm<z.infer<typeof FormSchema>>({
@@ -42,9 +63,11 @@ function AlternativeServer() {
 		},
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
 	const onSubmit = useCallback((data: z.infer<typeof FormSchema>) => {
 		localStorage.setItem("config", JSON.stringify(data));
 		setConfig(data);
+		reloadToast();
 	}, []);
 
 	return (
@@ -81,9 +104,7 @@ function AlternativeServer() {
 	);
 }
 
-function Auth() {
-	const { toast } = useToast();
-
+function Auth({ toast }: { toast: ReturnType<typeof useToast>["toast"] }) {
 	const [resp, setResp] = useState<{
 		RequiredAuth: {
 			token: string;
@@ -210,6 +231,49 @@ function Auth() {
 									{...field}
 									disabled={isTempAuthorized}
 								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<Button type="submit">Submit</Button>
+			</form>
+		</Form>
+	);
+}
+
+function ProxyUrl({ reloadToast }: { reloadToast: () => void }) {
+	const formSchema = z.object({
+		url: z
+			.string()
+			.url("URL is not valid")
+			.endsWith("/", "URL must end with /"),
+	});
+
+	const form = useForm<z.infer<typeof formSchema>>({
+		resolver: zodResolver(formSchema),
+		defaultValues: {
+			url: proxyUrl,
+		},
+	});
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	const onSubmit = useCallback((data: z.infer<typeof formSchema>) => {
+		localStorage.setItem("proxyUrl", data.url);
+		reloadToast();
+	}, []);
+
+	return (
+		<Form {...form}>
+			<form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+				<FormLabel className="font-bold">Image Proxy URL</FormLabel>
+				<FormField
+					control={form.control}
+					name="url"
+					render={({ field }) => (
+						<FormItem>
+							<FormControl>
+								<Input placeholder="https://.../" {...field} />
 							</FormControl>
 							<FormMessage />
 						</FormItem>

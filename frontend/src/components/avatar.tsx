@@ -1,8 +1,22 @@
+import { proxyUrl } from "@/atoms";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/vrchat";
 
 const defaultAvatar =
 	"https://api.vrchat.cloud/api/1/image/file_0e8c4e32-7444-44ea-ade4-313c010d4bae/1/256";
+
+function getSrc(
+	user: Pick<
+		Partial<User>,
+		"currentAvatarThumbnailImageUrl" | "profilePicOverride" | "userIcon"
+	>,
+) {
+	const url =
+		user.currentAvatarThumbnailImageUrl === defaultAvatar
+			? user.profilePicOverride || user.userIcon
+			: user.currentAvatarThumbnailImageUrl || defaultAvatar;
+	return proxyUrl ? `${proxyUrl}?url=${url}&w=256&q=75` : url;
+}
 
 const VrcAvatar = ({
 	user,
@@ -24,11 +38,7 @@ const VrcAvatar = ({
 				"w-full h-full rounded-full object-cover aspect-square p-2",
 				className,
 			)}
-			src={
-				user.currentAvatarThumbnailImageUrl === defaultAvatar
-					? user.profilePicOverride || user.userIcon
-					: user.currentAvatarThumbnailImageUrl || defaultAvatar
-			}
+			src={getSrc(user)}
 			alt={user.displayName}
 		/>
 		{showStatus && (
