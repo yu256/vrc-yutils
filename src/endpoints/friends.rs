@@ -4,17 +4,14 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hyper::StatusCode;
-use std::{
-    net::{Ipv4Addr, SocketAddr},
-    time::Duration,
-};
+use std::{net::SocketAddr, time::Duration};
 
-const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
+// const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 
-pub(super) async fn friends(ConnectInfo(addr): ConnectInfo<SocketAddr>) -> Response {
-    if addr.ip() != LOCALHOST {
-        return (JSON, "{}").into_response();
-    }
+pub(super) async fn friends(ConnectInfo(_addr): ConnectInfo<SocketAddr>) -> Response {
+    // if addr.ip() != LOCALHOST {
+    //     return (JSON, "{}").into_response();
+    // }
 
     // todo: 認証を入れる
 

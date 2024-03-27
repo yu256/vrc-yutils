@@ -1,8 +1,9 @@
+#[cfg(not(feature = "server"))]
+use crate::xsoverlay::notify_join::{notify_join, JoinType};
 use crate::{
     fetcher::{self, ResponseExt as _},
     init::fetch_user_info,
     var::{ConfigRW, APP_NAME, CFG, UA, USERS},
-    xsoverlay::notify_join::{notify_join, JoinType},
 };
 use async_once_cell::OnceCell;
 use futures_util::StreamExt as _;
@@ -124,6 +125,7 @@ async fn connect_websocket() -> WSError {
                             serde_json::from_str::<FriendLocation>(&content)?.normalize();
                         user.unsanitize();
 
+                        #[cfg(not(feature = "server"))]
                         if let Some(to) = &user.travelingToLocation {
                             let to = to.to_owned();
                             let display_name = user.displayName.clone();
